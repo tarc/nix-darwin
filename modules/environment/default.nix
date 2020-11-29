@@ -146,6 +146,15 @@ in
       '';
       type = types.lines;
     };
+
+    environment.backupFileExtension = mkOption {
+      type = types.str;
+      default = "";
+      description = ''
+        Extension used to back up system files when they conflict during system activation.
+        Does not backup by default if no extension is specified.
+      '';
+    };
   };
 
   config = {

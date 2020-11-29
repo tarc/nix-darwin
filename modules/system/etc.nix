@@ -14,6 +14,7 @@ let
   etc = filter (f: f.enable) (attrValues config.environment.etc);
   etcDirs = filter (attr: hasDir attr.target) (attrValues config.environment.etc);
 
+  cfg = config.environment;
 in
 
 {
@@ -55,6 +56,7 @@ in
         if [ ! -e "$d" ]; then
           mkdir -p "$d"
         fi
+        ext=${cfg.backupFileExtension}
         if [ -e "$l" ]; then
           if [ "$(readlink "$l")" != "$f" ]; then
             if ! grep -q /etc/static "$l"; then
@@ -62,7 +64,11 @@ in
               o=''${o%% *}
               for h in ''${etcSha256Hashes["$l"]}; do
                 if [ "$o" = "$h" ]; then
-                  mv "$l" "$l.orig"
+                  if [ ! -z "$ext" ]; then
+                    mv "$l" "$l.$ext"
+                  else
+                    mv "$l" "$l.orig"
+                  fi
                   ln -s "$f" "$l"
                   break
                 else
@@ -71,8 +77,19 @@ in
               done
 
               if [ -z "$h" ]; then
-                echo "[1;31merror: not linking environment.etc.\"''${l#/etc/}\" because $l already exists, skipping...[0m" >&2
-                echo "[1;31mexisting file has unknown content $o, move and activate again to apply[0m" >&2
+                if [ ! -z "$ext" ]; then
+                  backup="$l.$ext"
+                  if [ -e "$backup" ]; then
+                    echo "[1;31merror: backup file $backup still exists. Either change the value of environment.backupFileExtension, or make a backup of the existing file and remove it[0m" >&2
+                  else
+                    echo "backing up $l as $backup" >&2
+                    mv "$l" "$backup"
+                    ln -s "$f" "$l"
+                  fi
+                else
+                  echo "[1;31merror: not linking environment.etc.\"''${l#/etc/}\" because $l already exists and environment.backupFileExtension is not specified, skipping...[0m" >&2
+                  echo "[1;31mexisting file has unknown content $o, move and activate again to apply[0m" >&2
+                fi
               fi
             fi
           fi
